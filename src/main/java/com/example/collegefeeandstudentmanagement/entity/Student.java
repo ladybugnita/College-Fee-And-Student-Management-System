@@ -42,6 +42,9 @@ public class Student {
     @Pattern(regexp ="^[A-Za-z ]+$", message = "Program must contain only alphabets and spaces")
     private String program;
 
+    @OneToOne(mappedBy = "student",cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private StudentFee studentFee;
+
     private LocalDateTime createdAt;
 
     public Student(){}
@@ -91,11 +94,18 @@ public class Student {
         public void setProgram(String program){
         this.program = program;
         }
+        public StudentFee getStudentFee(){
+        return studentFee;
+        }
+        public void setStudentFee(StudentFee studentFee){
+        this.studentFee = studentFee;
+        }
         public LocalDateTime getCreatedAt(){
         return createdAt;
         }
         public void setCreatedAt(LocalDateTime createdAt){
         this.createdAt = createdAt;
         }
+
     }
 
