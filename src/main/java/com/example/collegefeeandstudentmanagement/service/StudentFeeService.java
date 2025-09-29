@@ -8,6 +8,7 @@ import com.example.collegefeeandstudentmanagement.repository.StudentFeeRepositor
 import com.example.collegefeeandstudentmanagement.repository.StudentRepository;
 import com.example.collegefeeandstudentmanagement.dto.StudentFeeResponseDTO;
 import com.example.collegefeeandstudentmanagement.dto.InstallmentDTO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -21,11 +22,14 @@ public class StudentFeeService {
     private final StudentFeeRepository feeRepository;
     private final StudentRepository studentRepository;
     private final FeeInstallmentRepository installmentRepository;
+    private final EsewaPaymentService esewaPaymentService;
 
-    public StudentFeeService(StudentFeeRepository feeRepository, StudentRepository studentRepository, FeeInstallmentRepository installmentRepository){
+    @Autowired
+    public StudentFeeService(StudentFeeRepository feeRepository, StudentRepository studentRepository, FeeInstallmentRepository installmentRepository, EsewaPaymentService esewaPaymentService){
         this.feeRepository = feeRepository;
         this.studentRepository = studentRepository;
         this.installmentRepository= installmentRepository;
+        this.esewaPaymentService = esewaPaymentService;
     }
     public Optional<StudentFeeResponseDTO> assignFee(Long studentId, BigDecimal totalFee, BigDecimal scholarship, BigDecimal discount,int years) {
         Optional<Student> studentOpt = studentRepository.findById(studentId);
@@ -181,11 +185,38 @@ public class StudentFeeService {
         return true;
     }
 
-    public Optional<FeeInstallment> payInstallment(Long installmentId){
+    public Optional<FeeInstallment> payInstallment(Long installmentId) {
         Optional<FeeInstallment> installmentOpt = installmentRepository.findById(installmentId);
-        if(installmentOpt.isEmpty())return Optional.empty();
+        if (installmentOpt.isEmpty()) return Optional.empty();
         FeeInstallment feeInstallment = installmentOpt.get();
-        feeInstallment.setPaid(true);
-        return Optional.of(installmentRepository.save(feeInstallment));
+
+        String transactionId = "TXN-"+ installmentId;
+        String refId = "REF-" + installmentId;
+        String productId = "COLLEGE_FEE_" + installmentId;
+
+        boolean paymentVerified = esewaPaymentService.verifyPayment(transactionId,feeInstallment.getAmount().doubleValue(),refId, productId);
+        if (paymentVerified) {
+            feeInstallment.setPaid(true);
+            return Optional.of(installmentRepository.save(feeInstallment));
+        } else {
+            throw new RuntimeException("Payment verification failed for installment ID:" + installmentId);
+        }
     }
-}
+    public double getInstallmentAmountByNumber(Long studentId, int installmentNumber){
+        FeeInstallment installment = installmentRepository.findByStudentFee_Student_IdAndInstallmentNumber(studentId, installmentNumber)
+                .orElseThrow(() -> new RuntimeException(
+                        "Installment number" + installmentNumber + " not found for student"+ studentId
+                ));
+        return installment.getAmount().doubleValue();
+    }
+    public void markInstallmentPaidByNumber(Long studentId, int installmentNumber){
+       FeeInstallment installment = installmentRepository.findByStudentFee_Student_IdAndInstallmentNumber(studentId, installmentNumber)
+               .orElseThrow(() -> new RuntimeException(
+                       "Installment number" + installmentNumber + "not found for student" + studentId
+               ));
+       installment.setPaid(true);
+       installmentRepository.save(installment);
+        }
+    }
+
+

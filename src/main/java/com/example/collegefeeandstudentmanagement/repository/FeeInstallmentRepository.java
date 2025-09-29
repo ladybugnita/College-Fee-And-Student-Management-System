@@ -2,8 +2,8 @@ package com.example.collegefeeandstudentmanagement.repository;
 
 import com.example.collegefeeandstudentmanagement.entity.FeeInstallment;
 import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.List;
+import java.util.Optional;
 
 public interface FeeInstallmentRepository extends JpaRepository<FeeInstallment, Long>{
- List<FeeInstallment> findByStudentFeeId(Long studentFeeId);
+ Optional <FeeInstallment> findByStudentFee_Student_IdAndInstallmentNumber(Long studentId,int installmentNumber);
 }
