@@ -1,5 +1,6 @@
 package com.example.collegefeeandstudentmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -15,10 +16,11 @@ public class FeeInstallment {
     private BigDecimal amount;
 
     @Column(nullable = false)
-    private boolean paid = false;
+    private boolean paid;
 
     @ManyToOne
     @JoinColumn(name = "student_fee_id")
+    @JsonBackReference
     private StudentFee studentFee;
 
     public FeeInstallment(){}

@@ -66,7 +66,6 @@ public class StudentFeeService {
                 installments.add(inst);
             }
             studentFee.setInstallments(installments);
-
             student.setStudentFee(studentFee);
             feeRepository.save(studentFee);
             studentRepository.save(student);
@@ -217,6 +216,55 @@ public class StudentFeeService {
        installment.setPaid(true);
        installmentRepository.save(installment);
         }
+    public boolean isInstallmentPaid(Long studentId, int installmentNumber){
+        FeeInstallment installment = installmentRepository
+                .findByStudentFee_Student_IdAndInstallmentNumber(studentId, installmentNumber)
+                .orElseThrow(() -> new RuntimeException(
+                        "Installment number " + installmentNumber + " not found for student " + studentId
+                ));
+        return installment.isPaid();
+    }
+    public Optional<StudentFeeResponseDTO> updateDiscount(Long studentId, BigDecimal newDiscount) {
+        var studentOpt = studentRepository.findById(studentId);
+        if (studentOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        var student = studentOpt.get();
+        var studentFee = student.getStudentFee();
+        if (studentFee == null) {
+            return Optional.empty();
+        }
+
+        studentFee.setDiscountAmount(newDiscount);
+
+        BigDecimal safeTotal = Objects.requireNonNullElse(studentFee.getTotalFee(), BigDecimal.ZERO);
+        BigDecimal safeScholar = Objects.requireNonNullElse(studentFee.getScholarshipAmount(), BigDecimal.ZERO);
+        BigDecimal netFee = safeTotal.subtract(safeScholar).subtract(newDiscount);
+        studentFee.setNetFee(netFee);
+
+        List<FeeInstallment> installments = studentFee.getInstallments();
+        if (installments != null && !installments.isEmpty()) {
+            long unpaidCount = installments.stream().filter(inst -> !inst.isPaid()).count();
+            if (unpaidCount > 0) {
+                BigDecimal paidTotal = installments.stream()
+                        .filter(FeeInstallment::isPaid)
+                        .map(FeeInstallment::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                BigDecimal remainingAmount = netFee.subtract(paidTotal);
+                BigDecimal newInstallmentAmount = remainingAmount
+                        .divide(BigDecimal.valueOf(unpaidCount), 2, RoundingMode.HALF_UP);
+                for (FeeInstallment inst : installments) {
+                    if (!inst.isPaid()) {
+                        inst.setAmount(newInstallmentAmount);
+                    }
+                }
+            }
+        }
+        feeRepository.save(studentFee);
+        return Optional.of(new StudentFeeResponseDTO(studentFee));
+    }
     }
 
 

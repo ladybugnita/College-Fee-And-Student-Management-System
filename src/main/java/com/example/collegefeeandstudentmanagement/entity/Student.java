@@ -1,5 +1,6 @@
 package com.example.collegefeeandstudentmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import jakarta.validation.constraints.*;
@@ -43,6 +44,7 @@ public class Student {
     private String program;
 
     @OneToOne(mappedBy = "student",cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private StudentFee studentFee;
 
     private LocalDateTime createdAt;

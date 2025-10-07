@@ -4,7 +4,11 @@ import com.example.collegefeeandstudentmanagement.service.EsewaPaymentService;
 import com.example.collegefeeandstudentmanagement.service.StudentFeeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.example.collegefeeandstudentmanagement.entity.Student;
+import com.example.collegefeeandstudentmanagement.repository.StudentRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -12,17 +16,43 @@ import java.util.Map;
 public class EsewaController {
     private final EsewaPaymentService esewaPaymentService;
     private final StudentFeeService studentFeeService;
+    private final StudentRepository studentRepository;
 
-    public EsewaController(EsewaPaymentService esewaPaymentService, StudentFeeService studentFeeService){
+    public EsewaController(EsewaPaymentService esewaPaymentService, StudentFeeService studentFeeService,StudentRepository studentRepository){
         this.esewaPaymentService = esewaPaymentService;
         this.studentFeeService = studentFeeService;
+        this.studentRepository = studentRepository;
     }
     @PostMapping("/pay/{studentId}/{installmentNumber}")
-    public ResponseEntity<Map<String, String>> initiatePayment(@PathVariable Long studentId, @PathVariable int installmentNumber){
+    public ResponseEntity<?> initiatePayment(@PathVariable Long studentId, @PathVariable int installmentNumber, Authentication auth){
 
+        String username = auth.getName();
+        Student loggedInStudent = studentRepository.findByEmail(username)
+                .orElseThrow(()-> new RuntimeException("Logged-in student not found"));
+
+        if(!loggedInStudent.getId().equals(studentId)){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Error: you are not allowed to pay other student's installments");
+        }
+        boolean alreadyPaid = studentFeeService.isInstallmentPaid(studentId, installmentNumber);
+        if(alreadyPaid){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: you have already paid this installment");
+        }
         double amount = studentFeeService.getInstallmentAmountByNumber(studentId, installmentNumber);
-        String transactionId = "TXN-"+ installmentNumber + "-" + studentId + "-" + System.currentTimeMillis();
-        Map<String, String> payload = esewaPaymentService.initiatePayment(transactionId, amount);
+        String transactionId = "TXN-" + installmentNumber + "-" + studentId + "-" + System.currentTimeMillis();
+
+        Map<String, String> payload = new HashMap<>();
+        payload.put("psc", "0");
+        payload.put("tAmt", String.valueOf(amount));
+        payload.put("su", "http://localhost:8080/api/esewa/success");
+        payload.put("scd", "EPAYTEST");
+        payload.put("amt", String.valueOf(amount));
+        payload.put("pid", transactionId);
+        payload.put("pdc", "0");
+        payload.put("txAmt", "0");
+        payload.put("fu", "http://localhost:8080/api/esewa/failure");
+
         return ResponseEntity.ok(payload);
     }
     @GetMapping("/success")

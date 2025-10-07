@@ -1,5 +1,7 @@
 package com.example.collegefeeandstudentmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ public class StudentFee {
 
     @OneToOne
     @JoinColumn(name= "student_id",nullable =false, unique =true)
+    @JsonBackReference
     private Student student;
 
     @Column(nullable = false)
@@ -31,6 +34,7 @@ public class StudentFee {
     private int courseDurationYears;
 
     @OneToMany(mappedBy = "studentFee",cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<FeeInstallment> installments = new ArrayList<>();
     public StudentFee(){}
         public StudentFee(Student student, BigDecimal totalFee, BigDecimal scholarshipAmount, BigDecimal discountAmount, BigDecimal netFee, int years)
